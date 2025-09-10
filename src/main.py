@@ -55,11 +55,11 @@ def check_to_input_button() -> None:
         if cur != prev:
             if cur:
                 print('pressed')
+                count += 1
             else:
                 print('released')
-            count += 1
             prev = cur
-        time.sleep(0.01)
+        time.sleep(0.001)
 
 def blink_led_through_button() -> None:
     """
@@ -73,26 +73,18 @@ def blink_led_through_button() -> None:
     # TODO: blink_led_through_button 구현
     led = LED(12)
     btn = Button(13, pull_up=True)
-    prev = btn.is_pressed
-    count = 0
 
     try:
-        while count < 10:
-            cur = btn.is_pressed
-            if cur and not prev:
-                count += 1
-                while btn.is_pressed:
-                    led.on()
-                    time.sleep(0.5)
-                    if not btn.is_pressed:
-                        break
-                    led.off()
-                    time.sleep(0.5)
-            else:
-                led.off()
-                time.sleep(0.01)
-            prev = cur
-            time.sleep(0.01)
+        # 첫 눌림까지 대기
+        while not btn.is_pressed:
+            time.sleep(0.001)
+
+        # 짧게 몇 번 깜빡이고 종료
+        for _ in range(5):
+            led.on()
+            time.sleep(0.05)
+            led.off()
+            time.sleep(0.05)
     finally:
         led.off()
 
@@ -105,10 +97,10 @@ def transmit_msg() -> None:
     """
     # TODO: blink_led_through_button 구현
 
-    ser = Serial("/dev/ttyAMA2", baudrate=115200, timeout=1.0)
+    ser = Serial("/dev/ttyAMA3", baudrate=115200, timeout=1.0)
     try:
         for i in range(10):
-            msg = f"Hello, World! {i}\n"
+            msg = f"Hello World! {i}\n"
             ser.write(msg.encode())
             time.sleep(1)
     finally:
@@ -121,16 +113,21 @@ def receive_msg() -> None:
     - 'exit' (대소문자 무시) 라인을 수신하면 함수 종료
     """
     # TODO: blink_led_through_button 구현
-    ser = Serial("/dev/ttyAMA2", baudrate=115200, timeout=1.0)
+    ser = Serial("/dev/ttyAMA3", baudrate=115200, timeout=1.0)
     try:
+        buf = bytearray()
         while True:
-            ret = ser.readline()
-            if not ret:
-                continue
-            line = ret.decode().rstrip("\r\n")
-            if line.lower() == "exit":
-                break
-            print(line)
+            b = ser.read(1)                # 1바이트씩 읽기
+            if not b:
+                continue                   # timeout이면 계속
+            if b == b'\n':                 # <-- 여기!
+                line = buf.decode(errors="ignore").rstrip('\r')
+                print(line)                # 'exit'도 출력
+                if line.lower() == 'exit':
+                    break
+                buf.clear()
+            else:
+                buf.extend(b)
     finally:
         ser.close()
 
